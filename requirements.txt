@@ -1,0 +1,4 @@
+# List your Python dependencies here
+# Example:
+# PyPDF2>=3.0.0
+PyPDF2
