@@ -1,9 +1,14 @@
 from pdf_reader import read_pdf
+from utils import clean_text
 
-path = r"C:\Users\riyas\OneDrive\Desktop\ai-study-assistant\documents\gsoc sugarlabs.pdf"
+path = input("Enter PDF path: ")
 
 text = read_pdf(path)
 
-print("PDF loaded successfully!")
-print("Characters:", len(text))
-print(text[:1000])
+if text is not None:
+    text = clean_text(text)
+
+    print("\nPDF loaded successfully!")
+    print("Characters:", len(text))
+    print("\nFirst 1000 characters:\n")
+    print(text[:1000])

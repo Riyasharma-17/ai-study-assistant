@@ -1,12 +1,25 @@
-from PyPDF2 import PdfReader #-> PdfReader is the class responsible for opening and reading PDF files.
+from PyPDF2 import PdfReader
 
 def read_pdf(path):
-    reader = PdfReader(path)
+    if not path.lower().endswith(".pdf"):
+        print("Error: Please provide a PDF file.")
+        return None
 
-    all_text = ""
+    try:
+        reader = PdfReader(path)
 
-    for page in reader.pages:
-        page_text = page.extract_text() or ""
-        all_text += page_text
+        all_text = ""
 
-    return all_text
+        for page in reader.pages:
+            page_text = page.extract_text() or ""
+            all_text += page_text
+
+        return all_text
+
+    except FileNotFoundError:
+        print("Error: File not found.")
+        return None
+
+    except Exception as e:
+        print(f"Error reading PDF: {e}")
+        return None

@@ -1,4 +1,5 @@
-def print_welcome():
-    print("AI Study Assistant")
-    print("-------------------")
-    print("Load PDF documents into the documents/ folder and ask a question.")
+import re
+
+def clean_text(text):
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
