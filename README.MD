@@ -86,3 +86,46 @@ Clean Text
 
 ```
 ```
+### Day 3 — Building the Retrieval Pipeline
+
+Implemented the first version of the document retrieval system.
+
+Instead of sending the entire PDF to an LLM, the document is now split into smaller chunks and searched to find the most relevant information based on the user's question.
+
+**Implemented:**
+
+* Fixed-size document chunking
+* Chunk generation using Python string slicing
+* Keyword-based relevance scoring
+* Retrieval of the most relevant document chunk
+* Case-insensitive search improvements
+
+**Learned:**
+
+* Core concepts behind Retrieval-Augmented Generation (RAG)
+* Why documents must be chunked before retrieval
+* Python string slicing and chunking strategies
+* Search and ranking using keyword matching
+* Debugging data pipelines when preprocessing affects retrieval
+* Building retrieval systems without external frameworks
+
+### Current Pipeline
+
+```text
+PDF
+ ↓
+Extract Text
+ ↓
+Clean Text
+ ↓
+Split Into Chunks
+ ↓
+Retrieve Most Relevant Chunk
+```
+
+### Key Insight
+
+While implementing chunking, I discovered that my text-cleaning step removed paragraph boundaries, causing the entire document to become a single chunk. This led me to redesign the chunking strategy using fixed-size character windows, an important lesson in how different stages of a data pipeline can affect each other.
+
+The project now contains the core retrieval component required for a basic RAG system. The next step is connecting Gemini API and generating answers using the retrieved context.
+
