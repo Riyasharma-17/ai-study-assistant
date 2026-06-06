@@ -129,3 +129,54 @@ While implementing chunking, I discovered that my text-cleaning step removed par
 
 The project now contains the core retrieval component required for a basic RAG system. The next step is connecting Gemini API and generating answers using the retrieved context.
 
+### Day 4 — Gemini Integration & End-to-End RAG Pipeline
+
+Integrated Gemini API and transformed the project from a document retrieval tool into a functional AI-powered study assistant.
+
+Instead of simply returning the most relevant chunk from a PDF, the application now sends the retrieved context along with the user's question to Gemini and generates a natural language answer.
+
+**Implemented:**
+
+* Gemini API integration
+* Secure API key management using `.env`
+* Environment variable loading with `python-dotenv`
+* Prompt construction using retrieved context and user questions
+* LLM response generation
+* Basic error handling for API requests
+* Complete Retrieval-Augmented Generation (RAG) workflow
+
+**Learned:**
+
+* How LLM APIs work in real-world applications
+* API key security best practices
+* Environment variables and `.env` files
+* Fundamentals of prompt engineering
+* Difference between retrieval and generation
+* How context improves answer quality in RAG systems
+* Debugging AI pipelines and identifying retrieval bottlenecks
+
+### Current Pipeline
+
+```text
+PDF
+ ↓
+Extract Text
+ ↓
+Clean Text
+ ↓
+Split Into Chunks
+ ↓
+Retrieve Relevant Chunk
+ ↓
+Build Prompt
+ ↓
+Gemini API
+ ↓
+Generate Answer
+```
+
+### Key Insight
+
+While testing with multiple PDFs, I discovered that poor answers were often caused by retrieving the wrong chunk rather than limitations of the LLM itself. This highlighted a critical lesson in RAG systems: answer quality depends heavily on retrieval quality. The AI model can only generate responses from the context it receives.
+
+The project can now process documents, retrieve relevant information, and generate answers using Gemini, making it a complete end-to-end RAG application.
