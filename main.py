@@ -2,6 +2,7 @@ from pdf_reader import read_pdf
 from utils import clean_text
 from retriever import split_into_chunks
 from retriever import retrieve_relevant_chunk
+from llm import generate_answer
 
 path = input("Enter PDF path: ").strip()
 
@@ -9,7 +10,7 @@ text = read_pdf(path)
 
 if text is not None:
 
-    question = input("Ask a question: ").lower()
+    question = input("Ask a question: ").strip()
 
     text = clean_text(text)
 
@@ -26,3 +27,6 @@ if text is not None:
 
     print("\nMost Relevant Chunk:\n")
     print(best_chunk)
+    answer = generate_answer(question, best_chunk)
+    print("\nAnswer:\n")
+    print(answer)
