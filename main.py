@@ -1,7 +1,7 @@
 from pdf_reader import read_pdf
 from utils import clean_text
 from retriever import split_into_chunks
-from retriever import retrieve_relevant_chunk
+from retriever import retrieve_relevant_chunks
 from llm import generate_answer
 
 path = input("Enter PDF path: ").strip()
@@ -16,17 +16,16 @@ if text is not None:
 
     print("\nPDF loaded successfully!")
     print("Characters:", len(text))
-    print("\nFirst 1000 characters:\n")
-    print(text[:1000])
 
     chunks = split_into_chunks(text)
 
     print("\nNumber of chunks:", len(chunks))
 
-    best_chunk = retrieve_relevant_chunk(question, chunks)
+    context = retrieve_relevant_chunks(question, chunks)
 
-    print("\nMost Relevant Chunk:\n")
-    print(best_chunk)
-    answer = generate_answer(question, best_chunk)
+    answer = generate_answer(question, context)
+    
+    print("\nRetrieved Context:\n")
+    print(context[:1500])
     print("\nAnswer:\n")
     print(answer)
