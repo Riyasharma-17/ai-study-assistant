@@ -180,3 +180,72 @@ Generate Answer
 While testing with multiple PDFs, I discovered that poor answers were often caused by retrieving the wrong chunk rather than limitations of the LLM itself. This highlighted a critical lesson in RAG systems: answer quality depends heavily on retrieval quality. The AI model can only generate responses from the context it receives.
 
 The project can now process documents, retrieve relevant information, and generate answers using Gemini, making it a complete end-to-end RAG application.
+
+### Day 5 — Retrieval Optimization & RAG Improvement
+
+After testing the Day 4 version, I discovered that answer quality was often limited by retrieval quality rather than the LLM itself.
+
+The application was able to generate answers using Gemini, but sometimes retrieved irrelevant chunks because it relied on simple keyword matching. Day 5 focused on improving retrieval accuracy and providing better context to the model.
+
+**Implemented:**
+
+* Stop-word removal for cleaner search queries
+* Question preprocessing and punctuation removal
+* Refactored retrieval logic into reusable functions
+* Set-based relevance scoring
+* Top-K retrieval (Top 3 chunks)
+* Context aggregation from multiple relevant chunks
+* Retrieval quality debugging and testing
+
+**Learned:**
+
+* Why retrieval quality directly impacts answer quality in RAG systems
+* Stop words and text normalization techniques
+* Ranking and scoring strategies for information retrieval
+* Set operations for relevance matching
+* Top-K retrieval concepts used in production RAG systems
+* Debugging retrieval pipelines before blaming the LLM
+* Importance of context selection in AI applications
+
+### Current Pipeline
+
+```text
+PDF
+ ↓
+Extract Text
+ ↓
+Clean Text
+ ↓
+Split Into Chunks
+ ↓
+Clean Question
+ ↓
+Remove Stop Words
+ ↓
+Score Chunks
+ ↓
+Top-K Retrieval
+ ↓
+Build Context
+ ↓
+Gemini API
+ ↓
+Generate Answer
+```
+
+### Key Insight
+
+The biggest lesson from this project was that better AI answers do not always require a better model. During testing, improving retrieval quality alone significantly improved answer quality without changing the LLM. This demonstrated a core principle of Retrieval-Augmented Generation: the model can only answer as well as the context it receives.
+
+## Final Outcome
+
+The AI Study Assistant is now a complete end-to-end RAG application capable of:
+
+* Reading and processing PDF documents
+* Cleaning and preparing text for retrieval
+* Retrieving relevant information using Top-K search
+* Generating answers using Gemini API
+* Following a modular and maintainable architecture
+
+This project provided hands-on experience with Python, APIs, prompt engineering, retrieval systems, and the core concepts behind modern GenAI applications.
+
