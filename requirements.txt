@@ -2,3 +2,9 @@
 # Example:
 # PyPDF2>=3.0.0
 PyPDF2
+python-dotenv
+google-generativeai
+pypdfium2
+rapidocr-onnxruntime
+numpy
+Pillow
