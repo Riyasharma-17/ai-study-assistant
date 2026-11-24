@@ -1,219 +1,169 @@
+
 # AI Study Assistant
 
-> A lightweight RAG system built from scratch — no LangChain, no vector databases, just Python and a clear understanding of how retrieval-augmented generation actually works.
+A modular RAG pipeline built from scratch in Python—featuring hybrid native + OCR PDF extraction, page-level confidence scoring, and extraction telemetry—without hiding behind heavy frameworks like LangChain or vector databases.
 
----
+## Why This Project Exists (TL;DR for Reviewers)
 
-## What This Is
+Most RAG tutorials assume every PDF has clean, selectable digital text and wrap everything in black-box abstractions. Real-world documents don't work like that—they mix digital text with scanned pages, low-resolution images, and noisy formatting.
 
-Most tutorials hand you a framework and call it "building a RAG app." This project does the opposite.
+I built AI Study Assistant from scratch across 5 independent modules to understand and debug every stage of a document Q&A pipeline:
 
-The AI Study Assistant is a document question-answering system that lets users upload a PDF and ask natural language questions about its contents. Under the hood, it implements a complete RAG pipeline — chunking, retrieval, context aggregation, and LLM generation — written from scratch to understand what frameworks like LangChain are actually doing.
+- **Hybrid Ingestion (`pdf_reader.py`):** Evaluates every page individually—extracting native text via PyPDF2 when available, and automatically falling back to pypdfium2 + RapidOCR when a page is scanned or image-only.
+- **Confidence & Observability Telemetry:** Logs per-page extraction method (`native_text` vs. `ocr_fallback`), character count, mean OCR confidence score, end-to-end latency (ms), and flags pages below 0.70 confidence for human review.
+- **Zero-Framework RAG Core (`retriever.py` & `llm.py`):** Implements text normalization, overlapping fixed-size chunking, stop-word-filtered set-intersection scoring, Top-K context aggregation, and grounded Gemini generation cleanly separated from ingestion.
 
-Built over 5 days as a learning project. The goal was not to ship a product. The goal was to understand the engineering.
+## Sample Telemetry Output
 
----
+When ingesting a mixed or scanned document, `main.py` prints page-level extraction diagnostics before running retrieval:
 
-## The Problem
-
-LLMs have a context window limit. You cannot feed an entire textbook to Gemini and ask questions. You need to:
-
-1. Break the document into manageable pieces
-2. Find the pieces most relevant to the question
-3. Send only those pieces to the LLM
-4. Generate a grounded, accurate answer
-
-That's RAG. This project builds it piece by piece.
-
----
-
-## How It Works
-
+```text
+--- Extraction Telemetry ---
+Pages: 2 total | 1 native | 1 OCR fallback | Avg OCR Conf: 91.4% | Latency: 384.2ms
+  Page 1: native_text (1420 chars, conf=1.00)
+  Page 2: ocr_fallback (412 chars, conf=0.91)
 ```
+
+If an OCR page drops below 0.70 confidence, it logs `[WARN: Low confidence - flag for human review]` so downstream answers aren't trusted blindly.
+
+## Architecture & Data Flow
+
+```text
 Input PDF
     │
     ▼
-┌─────────────────┐
-│  PDF Extraction │  ← PyPDF2 reads raw text page by page
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Text Cleaning  │  ← Regex pipeline: removes noise, normalises whitespace
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│    Chunking     │  ← Fixed-size character windows with overlap
-└────────┬────────┘
-         │
-    User Question
-         │
-         ▼
-┌──────────────────────┐
-│  Question Cleaning   │  ← Punctuation removal, lowercasing
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│  Stop Word Removal   │  ← Filters "the", "is", "a" — keeps signal words
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│  Relevance Scoring   │  ← Set-based keyword overlap between query and chunks
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│   Top-K Retrieval    │  ← Returns top 3 most relevant chunks
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│  Context Aggregation │  ← Combines chunks into a single context block
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│   Prompt Assembly    │  ← Injects context + question into structured prompt
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│     Gemini API       │  ← Generates a grounded natural language answer
-└──────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                 Hybrid PDF Extraction                    │
+│  Per-page check: native text >= 50 chars?                │
+│   ├── YES → PyPDF2 native extraction (conf = 1.00)       │
+│   └── NO  → pypdfium2 render (2x) → RapidOCR fallback    │
+│             + page confidence & latency telemetry        │
+└────────────────────────────┬─────────────────────────────┘
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────┐
+│                     Text Cleaning                        │
+│  Regex pipeline: removes noise, normalizes whitespace    │
+└────────────────────────────┬─────────────────────────────┘
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────┐
+│                       Chunking                           │
+│  Fixed-size character windows with overlap               │
+└────────────────────────────┬─────────────────────────────┘
+                             │
+                       User Question
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────┐
+│               Query Cleaning & Stop Words                │
+│  Lowercasing, punctuation strip, signal-word filtering   │
+└────────────────────────────┬─────────────────────────────┘
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────┐
+│             Relevance Scoring & Top-K Retrieval          │
+│  Set-based keyword overlap → Top 3 chunks aggregated     │
+└────────────────────────────┬─────────────────────────────┘
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────┐
+│              Prompt Assembly & Gemini API                │
+│  Grounded answer generation from retrieved context       │
+└──────────────────────────────────────────────────────────┘
 ```
-
----
 
 ## Project Structure
 
-```
+```text
 ai-study-assistant/
 │
-├── main.py           # Entry point — orchestrates the full pipeline
-├── pdf_reader.py     # PDF extraction logic
-├── utils.py          # Text cleaning and preprocessing utilities
-├── retriever.py      # Chunking, scoring, and Top-K retrieval
-├── llm.py            # Gemini API integration and prompt construction
+├── main.py             # Entry point — prints extraction telemetry & orchestrates RAG
+├── pdf_reader.py       # Hybrid PDF extraction (PyPDF2 + pypdfium2/RapidOCR + confidence logs)
+├── utils.py            # Regex text cleaning and preprocessing utilities
+├── retriever.py        # Chunking, set-overlap scoring, and Top-K retrieval
+├── llm.py              # Gemini API integration and grounded prompt construction
+├── make_test_pdf.py    # Generates synthetic scanned/image-only PDFs for OCR testing
 │
-├── documents/        # Drop PDFs here
-├── DEVLOG/           # Day-by-day engineering notes
-│   ├── day-01.md
-│   ├── day-02.md
-│   └── ...
-│
-├── .env              # API key (not committed)
+├── documents/          # Drop digital or scanned PDFs here
+├── DEVLOG/             # Day-by-day engineering notes and trade-offs
 ├── requirements.txt
 └── README.md
 ```
 
-Each module has a single responsibility. `retriever.py` does not know about Gemini. `llm.py` does not know about PDFs. This separation made debugging significantly easier — when answers were wrong, the problem could be isolated to retrieval or generation independently.
-
----
+Each module follows the Single Responsibility Principle: `retriever.py` has no knowledge of OCR or Gemini, and `llm.py` has no knowledge of PDFs. Upgrading ingestion from PyPDF2-only to hybrid OCR required zero changes to cleaning, chunking, retrieval, or generation.
 
 ## Tech Stack
 
-| Component | Choice | Why |
+| Component | Choice | Engineering Rationale |
 |---|---|---|
-| PDF extraction | PyPDF2 | Lightweight, no heavy dependencies |
-| Text processing | Python `re` (regex) | Sufficient for cleaning at this scale; no overhead of NLP libraries |
-| Retrieval | Custom keyword scoring | Forces understanding of the mechanism before using embeddings |
-| LLM | Gemini API | Free tier suitable for development; straightforward REST interface |
-| Env management | `python-dotenv` | Standard practice for API key security |
-
-Notably absent: LangChain, vector databases, embeddings. This was intentional. The goal was to implement the concepts, not abstract over them.
-
----
+| Native PDF Parsing | PyPDF2 | Fast, zero-overhead extraction for clean digital pages |
+| Scanned Page Rendering | pypdfium2 | Pure-Python wheel; avoids OS-level poppler binary/PATH issues across machines |
+| OCR Engine | rapidocr-onnxruntime | Lightweight ONNX runtime with per-line confidence scores and no external Tesseract install |
+| Text Processing | Python re | Deterministic regex normalization without heavy NLP dependencies |
+| Retrieval | Custom Set-Overlap Scoring | Transparent baseline to benchmark retrieval quality before introducing embeddings |
+| LLM Generation | Gemini API | Straightforward REST interface for grounded Q&A |
 
 ## Key Engineering Decisions
 
-### Fixed-Size Chunking Over Paragraph Splitting
+### 1. Hybrid Per-Page Routing Over Blanket OCR
 
-Early versions tried to split text by paragraph boundaries. This broke during the cleaning phase — the regex pipeline removed the blank lines that marked paragraph separations, collapsing the entire document into one chunk.
+Running OCR on every page is slow and introduces character recognition noise onto clean digital text. Checking `len(raw_text) >= 50` per page routes digital pages through fast native extraction (~5ms) while triggering pypdfium2 + RapidOCR strictly on scanned/image pages—and lazy-loading the OCR engine only when needed.
 
-Fixed-size character windows with overlap solved this. Less elegant than semantic chunking, but reliable and predictable.
+### 2. Confidence Thresholding (< 0.70) for Human Review
 
-### Set-Based Scoring Over String Matching
+OCR errors silently corrupt RAG answers if downstream chunks look plausible to an LLM. Tracking per-page mean confidence and surfacing low-confidence warnings makes failure modes explicit at ingestion time rather than hidden in hallucinated outputs.
 
-Initial retrieval used substring matching — check if the keyword appears in the chunk. This was noisy and slow. Replacing it with set intersection (query keywords ∩ chunk keywords) made scoring cleaner and more accurate, and made stop word removal meaningful.
+### 3. Fixed-Size Overlapping Windows Over Paragraph Splitting
 
-### Top-K Over Single Chunk Retrieval
+Early versions split text on blank lines, which broke when regex whitespace normalization collapsed paragraph breaks into a single block. Fixed-size character windows with overlap proved predictable across both native PDF text and noisy OCR line breaks.
 
-Retrieving only the single best chunk caused failures when the relevant information spanned multiple sections. Top-3 retrieval with context aggregation improved answer coverage without significantly inflating the prompt size.
+### 4. Set-Based Intersection Over Substring Matching
 
----
-
-## Challenges
-
-**Retrieval quality, not model quality, was the bottleneck.**
-
-This was the central engineering insight of the project. Early poor answers felt like an LLM problem. After investigation, the issue was consistently that the wrong chunks were being retrieved — the LLM was generating coherent but irrelevant answers because the context it received was irrelevant.
-
-Improving the retrieval logic (stop word removal, set scoring, Top-K) produced noticeably better answers without touching the model or the prompt.
-
-This mirrors a known pattern in production RAG systems: optimise retrieval before optimising generation.
-
----
+Replacing raw substring checks with set intersection (`query_tokens ∩ chunk_tokens`) after stop-word removal eliminated noisy partial matches and paired naturally with Top-3 chunk aggregation for multi-section answers.
 
 ## What I Learned
 
-- **RAG is a data pipeline problem as much as an AI problem.** Each stage — extraction, cleaning, chunking, retrieval — compounds into final answer quality.
-- **Preprocessing decisions have downstream effects.** Removing paragraph breaks in cleaning broke chunking. Modules need to be designed with awareness of what comes after them.
-- **Single Responsibility Principle is worth the effort.** Isolating modules made bugs easier to find and fixes easier to test.
-- **API key security from day one.** `.env` and `.gitignore` set up before any API key was generated.
-- **Debugging a pipeline means isolating stages.** Print the chunks. Check the scores. Verify context before blaming the LLM.
+- **Ingestion quality sets the ceiling for RAG:** Early wrong answers looked like LLM failures, but inspecting retrieved chunks showed extraction and retrieval were the real bottlenecks.
+- **Module boundaries pay off during upgrades:** Keeping `pdf_reader.py` decoupled allowed adding OCR fallback, dataclasses for telemetry, and latency tracking without touching downstream modules.
+- **Zero-dependency portability matters:** Choosing pypdfium2 + rapidocr-onnxruntime over pdf2image + pytesseract ensures anyone cloning the repo can run `pip install -r requirements.txt` without OS binary setup.
 
----
+## Current Limitations & Next Steps
 
-## Limitations
-
-This is a learning project. Production use would require:
-
-- **Semantic retrieval** — Keyword matching cannot capture meaning. Embedding-based retrieval (FAISS, ChromaDB, or similar) would be the next step.
-- **Persistent storage** — Chunks are rebuilt on every run. A vector store would cache them.
-- **Chunking improvements** — Sentence-aware or semantic chunking would reduce the chance of splitting mid-thought.
-- **Evaluation** — No formal metrics (precision, recall, faithfulness) were measured. A real system needs these.
-- **UI** — Currently terminal-based. A web interface would be the practical next step.
-
----
-
-## Future Improvements
-
-- [ ] Replace keyword scoring with embedding-based retrieval (sentence-transformers + FAISS)
-- [ ] Add a simple Streamlit or Flask interface
-- [ ] Implement chunk overlap to avoid splitting relevant context at boundaries
-- [ ] Add retrieval evaluation using RAGAS or a custom scoring script
-- [ ] Support multiple PDFs with a persistent index
-- [ ] Add source attribution — show which chunk the answer came from
-
----
+- **Semantic Retrieval:** Replace keyword overlap with dense embeddings (sentence-transformers + FAISS) behind the existing `retriever.py` interface.
+- **Retrieval Evaluation:** Add a small benchmark set measuring recall@K and answer faithfulness on mixed native/scanned PDFs.
+- **Chunk-Level Source Citations:** Propagate `page_num` and `extraction_method` metadata from `pdf_reader.py` into final answers.
+- **API / Web Layer:** Wrap `main.py` in a FastAPI endpoint with file upload and JSON telemetry responses.
 
 ## Running Locally
+
+Clone the repository:
 
 ```bash
 git clone https://github.com/Riyasharma-17/ai-study-assistant
 cd ai-study-assistant
+```
+
+Install dependencies:
+
+```bash
 pip install -r requirements.txt
 ```
 
-Create a `.env` file:
-```
+Create a `.env` file in the root directory:
+
+```env
 GEMINI_API_KEY=your_key_here
 ```
 
-Drop a PDF into `documents/`, then:
+(Optional) Generate a sample scanned/image-only PDF to test the OCR fallback:
+
+```bash
+python make_test_pdf.py
+```
+
+Run the assistant:
+
 ```bash
 python main.py
 ```
-
----
-
-## Development Log
-
-Day-by-day engineering notes are in the [`DEVLOG/`](./DEVLOG/) folder. They cover implementation decisions, bugs encountered, and what changed between versions — written while building, not reconstructed afterward.
-
----
-
-*Built as part of a personal GenAI engineering learning track. Focused on understanding core RAG concepts before working with frameworks like LangChain or LlamaIndex.*
